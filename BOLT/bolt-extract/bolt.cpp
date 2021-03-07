@@ -107,81 +107,89 @@ void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
   std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << ")\n";
 }
 
-void bolt_reader_t::extract_file(const std::string& out_dir, const entry_t& entry) {
-  std::uint32_t flags = entry.flags();
-  std::uint32_t result_size = entry.uncompressed_size();
-  std::uint32_t hash = entry.name_hash();
-  std::uint32_t offset = entry.data_offset();
-  
+void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
-  
-  std::vector<std::byte> result_filedata;
-  result_filedata.reserve(result_size);
 
-  if (flags & FLAG_UNCOMPRESSED) {
-    result_filedata.insert(result_filedata.end(), &rom[cursor_pos], &rom[cursor_pos] + result_size);
-  }
-  else {
-    std::uint32_t op_count = 0;
-    std::uint32_t ext_offset = 0;
-    std::uint32_t ext_run = 0;
+  std::uint32_t op_count = 0;
+  std::uint32_t ext_offset = 0;
+  std::uint32_t ext_run = 0;
 
-    while (result_filedata.size() < result_size) {
-      std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
-      op_count++;
+  while (result.size() < expected_size) {
+    std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
+    op_count++;
 
-      if (bytevalue & 0x80) {
-        if (bytevalue & 0x40) {  // extension in offset
-          ext_offset <<= 6;
-          ext_offset |= bytevalue & 0x3F;
-        }
-        else if (bytevalue & 0x20) {  // extension in runlength
-          ext_run <<= 5;
-          ext_run |= bytevalue & 0x1F;
-        }
-        else if (bytevalue & 0x10) { // extension in both runlength and offset
-          ext_run <<= 2;
-          ext_offset <<= 2;
-
-          ext_offset |= (bytevalue & 0b1100) >> 2;
-          ext_run |= (bytevalue & 0b0011);
-        }
-        else { // uncompressed
-          std::uint32_t run_length = ((ext_run << 4) | (bytevalue & 0xF)) + 1;
-          for (unsigned i = 0; i < run_length; ++i) {
-            result_filedata.push_back(read_u8());
-          }
-          op_count = ext_offset = ext_run = 0;
-        }
+    if (bytevalue & 0x80) {
+      if (bytevalue & 0x40) {  // extension in offset
+        ext_offset <<= 6;
+        ext_offset |= bytevalue & 0x3F;
       }
-      else {  // lookup
-        std::uint32_t target_offset = result_filedata.size() - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
-        std::uint32_t run_length = ((ext_run << 3) | (bytevalue >> 4)) + op_count + 1;
+      else if (bytevalue & 0x20) {  // extension in runlength
+        ext_run <<= 5;
+        ext_run |= bytevalue & 0x1F;
+      }
+      else if (bytevalue & 0x10) { // extension in both runlength and offset
+        ext_run <<= 2;
+        ext_offset <<= 2;
 
-        if (result_filedata.size() <= target_offset) {
-          err_msg("lookbehind too far", bytevalue);
-          break;
-        }
-
+        ext_offset |= (bytevalue & 0b1100) >> 2;
+        ext_run |= (bytevalue & 0b0011);
+      }
+      else { // uncompressed
+        std::uint32_t run_length = ((ext_run << 4) | (bytevalue & 0xF)) + 1;
         for (unsigned i = 0; i < run_length; ++i) {
-          result_filedata.push_back(result_filedata[target_offset + i]);
+          result.push_back(read_u8());
         }
         op_count = ext_offset = ext_run = 0;
       }
     }
+    else {  // lookup
+      std::uint32_t target_offset = result.size() - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
+      std::uint32_t run_length = ((ext_run << 3) | (bytevalue >> 4)) + op_count + 1;
 
-    // Write final result
-    std::ostringstream filename;
-    filename << out_dir << "/" << std::hex << hash << guess_extension(result_filedata);
+      if (result.size() <= target_offset) {
+        err_msg("lookbehind too far", bytevalue);
+        break;
+      }
 
-    if (result_filedata.size() != result_size) {
-      std::cerr << "Result size is wrong. " << std::dec << result_filedata.size() << " != " << result_size << " for file " << filename.str() << "\n";
+      for (unsigned i = 0; i < run_length; ++i) {
+        result.push_back(result[target_offset + i]);
+      }
+      op_count = ext_offset = ext_run = 0;
     }
-
-    std::filesystem::create_directories(out_dir);
-    std::ofstream ofile(filename.str(), std::ios::binary);
-    ofile.write(reinterpret_cast<char*>(result_filedata.data()), result_filedata.size());
   }
+}
+
+void bolt_reader_t::extract_file(const std::string& out_dir, const entry_t& entry) {
+  std::uint32_t flags = entry.flags();
+  std::uint32_t expected_size = entry.uncompressed_size();
+  std::uint32_t hash = entry.name_hash();
+  std::uint32_t offset = entry.data_offset();
+
+  std::vector<std::byte> result;
+  result.reserve(expected_size);
+
+  if (flags & FLAG_UNCOMPRESSED) {
+    set_cur_pos(offset);
+    result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
+  }
+  else {
+    decompress(offset, expected_size, result);
+  }
+
+  write_result(out_dir, hash, result, expected_size);
+}
+
+void bolt_reader_t::write_result(const std::string& base_dir, std::uint32_t hash, const std::vector<std::byte>& data, std::uint32_t filesize) {
+  std::ostringstream filename;
+  filename << base_dir << "/" << std::hex << hash << guess_extension(data);
+
+  if (data.size() != filesize) {
+    std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename.str() << "\n";
+  }
+
+  std::filesystem::create_directories(base_dir);
+  std::ofstream ofile(filename.str(), std::ios::binary);
+  ofile.write(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
 const entry_t* bolt_reader_t::entry_at(std::uint32_t offset) const {
