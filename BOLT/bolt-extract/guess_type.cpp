@@ -21,56 +21,55 @@ bool is_wav_file(const std::vector<std::byte>& data) {
 bool is_txt_file(const std::vector<std::byte>& data) {
   for (std::byte b : data) {
     unsigned char c = static_cast<unsigned char>(b);
-    if (!std::isprint(c) && !std::isspace(c)) return false;
+    if (!std::isprint(c) && !std::isspace(c) && c != '‘' && c != '’' && c != '“' && c != '”') return false;
   }
   return true;
 }
 
-struct pcx_header_t {
-  std::uint8_t fixed;
-  std::uint8_t version;
-  std::uint8_t encoding;
-  std::uint8_t bpp;
-  std::uint16_t min_x;
-  std::uint16_t min_y;
-  std::uint16_t max_x;
-  std::uint16_t max_y;
-  std::uint16_t width_dpi;
-  std::uint16_t height_dpi;
-  std::array<std::uint8_t, 48> ega_palette;
-  std::uint8_t reserved1;
-  std::uint8_t colorplanes;
-  std::uint16_t bytes_per_line;
-  std::uint16_t palette_mode;
-  std::uint16_t src_width;
-  std::uint16_t src_height;
-  std::array<std::uint8_t, 54> reserved2;
+struct img_header_t { // big endian header
+  std::uint16_t unk1;
+  std::uint16_t bpp;
+  std::uint32_t unk2;
+  std::uint16_t width;
+  std::uint16_t height;
+  std::uint32_t unk4;
 };
 
-static_assert(sizeof(pcx_header_t) == 128);
+bool is_img_file(const std::vector<std::byte>& data) {
+  if (data.size() <= sizeof(img_header_t)) return false;
 
-bool is_pcx_file(const std::vector<std::byte>& data) {
-  if (data.size() <= sizeof(pcx_header_t)) return false;
+  const img_header_t* tgabw = reinterpret_cast<const img_header_t*>(data.data());
+  
+  std::uint16_t width = ((tgabw->width & 0x00FF) << 8) | ((tgabw->width & 0xFF00) >> 8);
+  std::uint16_t height = ((tgabw->height & 0x00FF) << 8) | ((tgabw->height & 0xFF00) >> 8);
 
-  const pcx_header_t* pcx = reinterpret_cast<const pcx_header_t*>(data.data());
+  return 
+    data.size() == width * height + sizeof(img_header_t) && 
+    (tgabw->unk1 & 0xFF) == 0 &&
+    ((tgabw->unk1 & 0xFF00) >> 8) < 5 &&
+    tgabw->bpp == 0x0800 &&
+    tgabw->unk2 == 0 && 
+    tgabw->unk4 == 0;
+}
+
+struct pal_header_t { // big endian header
+  std::uint32_t unk1;  // byte 4 has bpp
+  std::uint16_t entries;
+  std::uint16_t unk2;
+};
+
+bool is_pal_file(const std::vector<std::byte>& data) {
+  if (data.size() <= sizeof(pal_header_t)) return false;
+  const pal_header_t* pal = reinterpret_cast<const pal_header_t*>(data.data());
+
   return
-    pcx->fixed == 10 &&
-    pcx->version <= 5 &&
-    pcx->encoding <= 1 &&
-    pcx->bpp <= 8 &&
-    pcx->min_x <= pcx->max_x &&
-    pcx->min_y <= pcx->max_y &&
-    pcx->max_x > 0 &&
-    pcx->max_y > 0 &&
-    pcx->palette_mode <= 2;
+    data.size() == 255 * 2 + sizeof(pal_header_t) &&
+    pal->unk1 == 0 &&
+    pal->entries == 0xFF00;
 }
 
 bool is_fnt_file(const std::vector<std::byte>& data) {
   return check_easy_header(data, 'F', 'O', 'N', 'T');
-}
-
-bool is_smk_file(const std::vector<std::byte>& data) {
-  return check_easy_header(data, 'S', 'M', 'K', '2');
 }
 
 bool is_chk_file(const std::vector<std::byte>& data) {
@@ -85,9 +84,9 @@ bool is_chk_file(const std::vector<std::byte>& data) {
 std::string guess_extension(const std::vector<std::byte>& data) {
   if (is_wav_file(data)) return ".wav";
   else if (is_fnt_file(data)) return ".fnt";
-  else if (is_smk_file(data)) return ".smk";
   else if (is_chk_file(data)) return ".chk";
-  else if (is_pcx_file(data)) return ".pcx";
+  else if (is_img_file(data)) return ".unkimg";
+  else if (is_pal_file(data)) return ".unkpal";
   else if (is_txt_file(data)) return ".txt";
   else return ".unk";
 }
