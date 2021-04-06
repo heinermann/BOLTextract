@@ -29,6 +29,9 @@ Usage:
 
 Example: `bolt-extract.exe -b "StarCraft 64 (U).z64" starcraft64/`
 
+## Notes
+- Only `z64` format roms for N64 are supported.
+
 ## Building
 1. `git clone https://github.com/heinermann/BOLTextract.git`
 2. `git submodule init`
