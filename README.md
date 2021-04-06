@@ -5,17 +5,21 @@ Unpacks all files contained within the embedded archive. The files are not named
 
 ## Games that use BOLT
 Here are some games confirmed to use BOLT archives:
-- **Starcraft 64** (N64)
-- Namco Museum (N64, GBA, Dreamcast)
+- Mystic Midway: Rest in Pieces (DOS)
+- Voyeur (DOS)
+- 3-D TableSports (DOS)
+- The Game of Life (Windows 95)
 - Bassmasters 2000 (N64)
+- Namco Museum (N64, GBA, Dreamcast)
 - Ms. Pac-Man - Maze Madness (N64, Dreamcast)
 - Power Rangers - Lightspeed Rescue (N64)
-- Shrek Super Party (XBox)
+- **Starcraft 64** (N64)
 - Pac-Man Collection (GBA)
-- The Lost Vikings (GBA)
-- Rock n' Roll Racing (GBA)
+- Shrek Super Party (XBox)
 - Blackthorne (GBA)
-- The Game of Life (Windows 95)
+- Rock n' Roll Racing (GBA)
+- The Lost Vikings (GBA)
+
 
 ## Running
 ```
