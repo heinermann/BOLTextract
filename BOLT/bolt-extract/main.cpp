@@ -25,7 +25,7 @@ void show_help(cxxopts::Options &cmd) {
 
 int main(int argc, const char **argv)
 {
-  cxxopts::Options cmd("bolt-extract", "Extract BOLT archive from a Starcraft z64 rom.");
+  cxxopts::Options cmd("bolt-extract", "Extract Mass Media's BOLT archive from binaries.");
   configure(cmd);
 
   auto parsed = cmd.parse(argc, argv);
