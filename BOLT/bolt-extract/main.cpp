@@ -9,13 +9,14 @@
 // Configure the command line
 void configure(cxxopts::Options& cmd) {
   cmd.add_options()
-    ("i,input", "input file (.z64)", cxxopts::value<std::string>())
-    ("o,output", "output directory", cxxopts::value<std::string>())
+    ("i,input", "input file", cxxopts::value<std::string>())
+    ("b,big", "Use Big Endian byte order (N64)")
+    ("o,output", "output directory (optional, defaults to input file's directory)", cxxopts::value<std::string>())
     ("h,help", "show help")
     ;
 
   cmd.parse_positional({ "input", "output" });
-  cmd.positional_help("INPUT_FILE OUTPUT_DIR");
+  cmd.positional_help("INPUT_FILE [OUTPUT_DIR]");
 }
 
 void show_help(cxxopts::Options &cmd) {
@@ -34,14 +35,20 @@ int main(int argc, const char **argv)
     return 0;
   }
 
-  if (!parsed.count("input") || !parsed.count("output")) {
-    std::cerr << "Missing input file (z64).\n";
+  if (!parsed.count("input")) {
+    std::cerr << "Missing input file.\n";
     show_help(cmd);
     return 1;
   }
 
   std::string input_file = parsed["input"].as<std::string>();
-  std::string output_dir = parsed["output"].as<std::string>();
+  std::filesystem::path input_path = std::filesystem::absolute(input_file);
+
+  std::filesystem::path output_path = (input_path.parent_path() / input_path.stem()).string();
+  if (parsed.count("output"))
+    output_path = std::filesystem::absolute(parsed["output"].as<std::string>());
+  
+  BOLT::g_big_endian = parsed["big"].as<bool>();
 
 #ifdef _DEBUG
   std::cerr << "Attach debugger, then press enter..." << std::endl;
@@ -49,8 +56,8 @@ int main(int argc, const char **argv)
 #endif
 
   BOLT::extract_bolt(
-    std::filesystem::absolute(input_file).string(),
-    std::filesystem::absolute(output_dir).string()
+    input_path.string(),
+    output_path.string()
   );
 
   return 0;

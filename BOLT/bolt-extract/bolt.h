@@ -8,6 +8,8 @@ namespace BOLT {
 
   std::uint32_t bswap(std::uint32_t v);
 
+  extern bool g_big_endian;
+
   /*
   Flag notes:
   0x0A - seen for most files (txt, fnt, chk)

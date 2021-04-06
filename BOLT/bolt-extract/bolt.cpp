@@ -13,6 +13,10 @@
 
 using namespace BOLT;
 
+namespace BOLT {
+  bool g_big_endian = false;
+}
+
 std::uint32_t BOLT::bswap(std::uint32_t v) {
   return
     ((v & 0x000000FF) << 24) |
@@ -22,19 +26,27 @@ std::uint32_t BOLT::bswap(std::uint32_t v) {
 }
 
 uint32_t entry_t::flags() const {
-  return bswap(flags_be);
+  //if (g_big_endian)
+    return bswap(flags_be);
+  //return flags_be;
 }
 
 uint32_t entry_t::uncompressed_size() const {
-  return bswap(uncompressed_size_be);
+  if (g_big_endian)
+    return bswap(uncompressed_size_be);
+  return uncompressed_size_be;
 }
 
 uint32_t entry_t::data_offset() const {
-  return bswap(data_offset_be);
+  if (g_big_endian)
+    return bswap(data_offset_be);
+  return data_offset_be;
 }
 
 uint32_t entry_t::name_hash() const {
-  return bswap(name_hash_be);
+  if (g_big_endian)
+    return bswap(name_hash_be);
+  return name_hash_be;
 }
 
 void bolt_reader_t::read_from_file(const std::string& filename) {
