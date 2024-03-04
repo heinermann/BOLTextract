@@ -144,13 +144,15 @@ bool is_grp_file(const std::vector<std::byte>& data) {
 }
 
 std::string guess_extension(const std::vector<std::byte>& data) {
-  if (is_wav_file(data)) return ".wav";
-  else if (is_fnt_file(data)) return ".fnt";
-  else if (is_chk_file(data)) return ".chk";
-  else if (is_img_file(data)) return ".unkimg";
-  else if (is_pal_file(data)) return ".unkpal";
-  else if (is_tbl_file(data)) return ".tbl";
-  else if (is_grp_file(data)) return ".grp";
-  else if (is_txt_file(data)) return ".txt";
-  else return ".unk";
+  if (data.size() != 0) {
+    if (is_wav_file(data)) return ".wav";
+    if (is_fnt_file(data)) return ".fnt";
+    if (is_chk_file(data)) return ".chk";
+    if (is_img_file(data)) return ".unkimg";
+    if (is_pal_file(data)) return ".unkpal";
+    if (is_tbl_file(data)) return ".tbl";
+    if (is_grp_file(data)) return ".grp";
+    if (is_txt_file(data)) return ".txt";
+  }
+  return ".unk";
 }

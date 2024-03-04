@@ -155,9 +155,17 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
       }
     }
     else {  // lookup
-      std::uint32_t target_offset = std::uint32_t(result.size()) - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
+      if (result.size() == 0) {
+        err_msg("lookup can't happen on first byte, something fishy is going on", bytevalue);
+      }
+
+      std::int32_t target_offset = std::int32_t(result.size()) - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
       std::uint32_t run_length = ((ext_run << 3) | (bytevalue >> 4)) + op_count + 1;
 
+      if (target_offset < 0) {
+        err_msg("negative value for lookbehind", bytevalue);
+        break;
+      }
       if (result.size() <= target_offset) {
         err_msg("lookbehind too far", bytevalue);
         break;
