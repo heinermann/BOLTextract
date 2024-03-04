@@ -41,7 +41,7 @@ namespace BOLT {
     uint32_t magic; // 'B', 'O', 'L', 'T'
     uint32_t unk1;
     uint32_t unk2;
-    uint32_t unk3;
+    uint32_t end_offset;
     entry_t entries[1];
   };
 
