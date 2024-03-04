@@ -81,12 +81,76 @@ bool is_chk_file(const std::vector<std::byte>& data) {
     check_easy_header(data, 'V', 'C', 'O', 'D');
 }
 
+struct TStrTbl {
+  std::uint16_t wStrCount;
+  std::uint16_t wStrOffsets[1];
+};
+
+bool is_tbl_file(const std::vector<std::byte>& data) {
+  const TStrTbl* pTbl = reinterpret_cast<const TStrTbl*>(data.data());
+  
+  if (pTbl->wStrCount <= 1) return false; // has data
+
+  std::uint32_t data_start = pTbl->wStrCount * 2 + 2;
+  if (data_start >= data.size()) return false; // in bounds
+  if (pTbl->wStrOffsets[0] != data_start) return false; // expected offset
+  
+  for (unsigned i = 0; i < pTbl->wStrCount; i++) {
+    if (pTbl->wStrOffsets[i] < data_start || pTbl->wStrOffsets[i] >= data.size()) return false; // in bounds
+    if (i > 0 && data.at(pTbl->wStrOffsets[i] - 1) != std::byte(0)) return false; // null terminated string
+
+    // must have incremental offsets (not a requirement, but a pattern)
+    if (i > 0 && pTbl->wStrOffsets[i] <= pTbl->wStrOffsets[i - 1]) return false;
+  }
+  return data.back() == std::byte(0); // last null terminated string
+}
+
+struct FRAME {
+  std::uint8_t dx;
+  std::uint8_t dy;
+  std::uint8_t wdt;
+  std::uint8_t hgt;
+  std::uint32_t offset;
+};
+
+#pragma pack(1)
+struct GROUP {
+  std::uint16_t wFrames;
+  std::uint16_t wdt;
+  std::uint16_t hgt;
+  FRAME frames[1];
+};
+#pragma pack()
+
+bool is_grp_file(const std::vector<std::byte>& data) {
+  const GROUP* pGrp = reinterpret_cast<const GROUP*>(data.data());
+
+  if (pGrp->wFrames == 0 || pGrp->wdt == 0 || pGrp->hgt == 0) return false; // has data
+
+  std::uint32_t data_start = sizeof(GROUP) + (pGrp->wFrames - 1) * sizeof(FRAME);
+  if (data_start + 1 >= data.size()) return false; // in bounds
+  if (pGrp->frames[0].offset != data_start) return false; // expected first offset
+  
+  for (unsigned i = 0; i < pGrp->wFrames; i++) {
+    if (pGrp->frames[i].wdt == 0) return false;
+    if (pGrp->frames[i].hgt == 0) return false;
+
+    if (pGrp->frames[i].dx + pGrp->frames[i].wdt > pGrp->wdt) return false;
+    if (pGrp->frames[i].dy + pGrp->frames[i].hgt > pGrp->hgt) return false;
+
+    if (pGrp->frames[i].offset < data_start || pGrp->frames[i].offset >= data.size()) return false;
+  }
+  return true;
+}
+
 std::string guess_extension(const std::vector<std::byte>& data) {
   if (is_wav_file(data)) return ".wav";
   else if (is_fnt_file(data)) return ".fnt";
   else if (is_chk_file(data)) return ".chk";
   else if (is_img_file(data)) return ".unkimg";
   else if (is_pal_file(data)) return ".unkpal";
+  else if (is_tbl_file(data)) return ".tbl";
+  else if (is_grp_file(data)) return ".grp";
   else if (is_txt_file(data)) return ".txt";
   else return ".unk";
 }

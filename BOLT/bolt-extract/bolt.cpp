@@ -155,7 +155,7 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
       }
     }
     else {  // lookup
-      std::uint32_t target_offset = result.size() - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
+      std::uint32_t target_offset = std::uint32_t(result.size()) - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
       std::uint32_t run_length = ((ext_run << 3) | (bytevalue >> 4)) + op_count + 1;
 
       if (result.size() <= target_offset) {
