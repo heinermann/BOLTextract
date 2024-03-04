@@ -65,9 +65,9 @@ constexpr std::byte BOLT_STR_LOWER[] = { std::byte('b'), std::byte('o'), std::by
 
 void bolt_reader_t::find_bolt_archive() {
   auto found = std::ranges::search(rom, BOLT_STR);
-  if (found.empty()) {
+  if (!found) {
     found = std::ranges::search(rom, BOLT_STR_LOWER);
-    if (found.empty()) {
+    if (!found) {
       throw std::runtime_error("Failed to find BOLT header. Rom is either incorrect format, corrupted, or does not contain BOLT archive.");
     }
   }

@@ -6,6 +6,27 @@
 
 #include "guess_type.h"
 
+namespace BOLT {
+  extern bool g_big_endian;
+}
+
+std::uint32_t bswap_if(std::uint32_t v) {
+  if (!BOLT::g_big_endian) return v;
+  return
+    ((v & 0x000000FF) << 24) |
+    ((v & 0x0000FF00) << 8) |
+    ((v & 0x00FF0000) >> 8) |
+    ((v & 0xFF000000) >> 24);
+}
+
+std::uint16_t bswap_if(std::uint16_t v) {
+  if (!BOLT::g_big_endian) return v;
+  return
+    ((v & 0x00FF) << 8) |
+    ((v & 0xFF00) >> 8);
+}
+
+
 bool check_easy_header(const std::vector<std::byte>& d, char c1, char c2, char c3, char c4) {
   return d.size() > 32 &&
     d[0] == std::byte(c1) &&
@@ -37,7 +58,6 @@ struct img_header_t { // big endian header
 
 bool is_img_file(const std::vector<std::byte>& data) {
   if (data.size() <= sizeof(img_header_t)) return false;
-
   const img_header_t* tgabw = reinterpret_cast<const img_header_t*>(data.data());
   
   std::uint16_t width = ((tgabw->width & 0x00FF) << 8) | ((tgabw->width & 0xFF00) >> 8);
@@ -87,6 +107,7 @@ struct TStrTbl {
 };
 
 bool is_tbl_file(const std::vector<std::byte>& data) {
+  if (data.size() <= sizeof(TStrTbl)) return false;
   const TStrTbl* pTbl = reinterpret_cast<const TStrTbl*>(data.data());
   
   if (pTbl->wStrCount <= 1) return false; // has data
@@ -123,6 +144,7 @@ struct GROUP {
 #pragma pack()
 
 bool is_grp_file(const std::vector<std::byte>& data) {
+  if (data.size() <= sizeof(GROUP)) return false;
   const GROUP* pGrp = reinterpret_cast<const GROUP*>(data.data());
 
   if (pGrp->wFrames == 0 || pGrp->wdt == 0 || pGrp->hgt == 0) return false; // has data
@@ -143,6 +165,32 @@ bool is_grp_file(const std::vector<std::byte>& data) {
   return true;
 }
 
+#pragma pack(1)
+struct MASSMEDIA_AUDIO {
+  std::uint8_t channels;
+  std::uint8_t bits;
+  std::uint16_t sampleRate;
+  std::uint32_t dataSize;
+  std::uint32_t unknown;  // always 0?
+};
+#pragma pack()
+
+bool is_audio_file(const std::vector<std::byte>& data) {
+  if (data.size() <= sizeof(MASSMEDIA_AUDIO)) return false;
+  const MASSMEDIA_AUDIO* pAudio = reinterpret_cast<const MASSMEDIA_AUDIO*>(data.data());
+
+  if (pAudio->channels > 2) return false;
+  if (pAudio->bits != 8 && pAudio->bits != 16 && pAudio->bits != 24 && pAudio->bits != 32) return false;
+  if (pAudio->unknown != 0) return false;
+
+  std::uint32_t dataSize = bswap_if(pAudio->dataSize);
+  std::uint16_t sampleRate = bswap_if(pAudio->sampleRate);
+
+  if (dataSize + sizeof(MASSMEDIA_AUDIO) != data.size()) return false;
+  if (sampleRate < 8000 || sampleRate > 44100) return false;
+  return true;
+}
+
 std::string guess_extension(const std::vector<std::byte>& data) {
   if (data.size() != 0) {
     if (is_wav_file(data)) return ".wav";
@@ -150,6 +198,7 @@ std::string guess_extension(const std::vector<std::byte>& data) {
     if (is_chk_file(data)) return ".chk";
     if (is_img_file(data)) return ".unkimg";
     if (is_pal_file(data)) return ".unkpal";
+    if (is_audio_file(data)) return ".unkpcm";
     if (is_tbl_file(data)) return ".tbl";
     if (is_grp_file(data)) return ".grp";
     if (is_txt_file(data)) return ".txt";
