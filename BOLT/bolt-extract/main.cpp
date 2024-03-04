@@ -23,6 +23,13 @@ void show_help(cxxopts::Options &cmd) {
   std::cerr << cmd.help() << std::endl;
 }
 
+void check_debugger() {
+#ifdef _DEBUG
+  std::cerr << "Attach debugger, then press enter..." << std::endl;
+  std::cin.ignore();
+#endif
+}
+
 int main(int argc, const char **argv)
 {
   cxxopts::Options cmd("bolt-extract", "Extract Mass Media's BOLT archive from binaries.");
@@ -44,21 +51,16 @@ int main(int argc, const char **argv)
   std::string input_file = parsed["input"].as<std::string>();
   std::filesystem::path input_path = std::filesystem::absolute(input_file);
 
-  std::filesystem::path output_path = (input_path.parent_path() / input_path.stem()).string();
-  if (parsed.count("output"))
+  std::filesystem::path output_path = input_path.parent_path() / input_path.stem();
+  if (parsed.count("output")) {
     output_path = std::filesystem::absolute(parsed["output"].as<std::string>());
+  }
   
   BOLT::g_big_endian = parsed["big"].as<bool>();
 
-#ifdef _DEBUG
-  std::cerr << "Attach debugger, then press enter..." << std::endl;
-  std::cin.ignore();
-#endif
+  check_debugger();
 
-  BOLT::extract_bolt(
-    input_path.string(),
-    output_path.string()
-  );
+  BOLT::extract_bolt(input_path, output_path);
 
   return 0;
 }

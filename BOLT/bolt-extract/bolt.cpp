@@ -49,7 +49,7 @@ uint32_t entry_t::name_hash() const {
   return name_hash_be;
 }
 
-void bolt_reader_t::read_from_file(const std::string& filename) {
+void bolt_reader_t::read_from_file(const std::filesystem::path& filename) {
   std::ifstream rom_file(filename, std::ios::binary | std::ios::ate);
   std::streamsize rom_size = rom_file.tellg();
   rom_file.seekg(0);
@@ -80,7 +80,7 @@ std::byte bolt_reader_t::read_u8() {
   return v;
 }
 
-void bolt_reader_t::extract_all_to(const std::string& out_dir) {
+void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
   std::uint32_t earliest_ref = std::numeric_limits<std::uint32_t>::max();
   for (int i = 0; offsetof(archive_t, entries[i]) < earliest_ref; ++i) {
     
@@ -91,13 +91,13 @@ void bolt_reader_t::extract_all_to(const std::string& out_dir) {
   }
 }
 
-void bolt_reader_t::extract_dir(const std::string& out_dir, const entry_t* entries, std::uint32_t num_entries) {
+void bolt_reader_t::extract_dir(const std::filesystem::path& out_dir, const entry_t* entries, std::uint32_t num_entries) {
   for (std::uint32_t i = 0; i < num_entries; ++i) {
     extract_entry(out_dir, entries[i]);
   }
 }
 
-void bolt_reader_t::extract_entry(const std::string& out_dir, const entry_t& entry) {
+void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const entry_t& entry) {
   std::uint32_t flags = entry.flags();
   std::uint32_t hash = entry.name_hash();
   std::uint32_t offset = entry.data_offset();
@@ -107,8 +107,8 @@ void bolt_reader_t::extract_entry(const std::string& out_dir, const entry_t& ent
     if (num_items == 0) num_items = 256;
 
     std::ostringstream ss;
-    ss << out_dir << "/" << std::hex << offset;
-    extract_dir(ss.str(), entry_at(offset), num_items);
+    ss << std::hex << offset;
+    extract_dir(out_dir / ss.str(), entry_at(offset), num_items);
   }
   else { // is file
     extract_file(out_dir, entry);
@@ -154,9 +154,15 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
         op_count = ext_offset = ext_run = 0;
       }
     }
+    /*else if (result.size() == 0) {
+      for (unsigned i = 0; i < bytevalue; ++i) {
+        result.push_back(read_u8());
+      }
+    }*/
     else {  // lookup
       if (result.size() == 0) {
         err_msg("lookup can't happen on first byte, something fishy is going on", bytevalue);
+        break;
       }
 
       std::int32_t target_offset = std::int32_t(result.size()) - 1 - ((ext_offset << 4) | (bytevalue & 0xF));
@@ -179,7 +185,7 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
   }
 }
 
-void bolt_reader_t::extract_file(const std::string& out_dir, const entry_t& entry) {
+void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry) {
   std::uint32_t flags = entry.flags();
   std::uint32_t expected_size = entry.uncompressed_size();
   std::uint32_t hash = entry.name_hash();
@@ -199,16 +205,17 @@ void bolt_reader_t::extract_file(const std::string& out_dir, const entry_t& entr
   write_result(out_dir, hash, result, expected_size);
 }
 
-void bolt_reader_t::write_result(const std::string& base_dir, std::uint32_t hash, const std::vector<std::byte>& data, std::uint32_t filesize) {
-  std::ostringstream filename;
-  filename << base_dir << "/" << std::hex << hash << guess_extension(data);
+void bolt_reader_t::write_result(const std::filesystem::path& base_dir, std::uint32_t hash, const std::vector<std::byte>& data, std::uint32_t filesize) {
+  std::ostringstream filehash;
+  filehash << std::hex << hash << guess_extension(data);
+  std::filesystem::path filename = base_dir / filehash.str();
 
   if (data.size() != filesize) {
-    std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename.str() << "\n";
+    std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename << "\n";
   }
 
   std::filesystem::create_directories(base_dir);
-  std::ofstream ofile(filename.str(), std::ios::binary);
+  std::ofstream ofile(filename, std::ios::binary);
   ofile.write(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
@@ -216,7 +223,7 @@ const entry_t* bolt_reader_t::entry_at(std::uint32_t offset) const {
   return reinterpret_cast<const entry_t*>(&rom[bolt_begin + offset]);
 }
 
-bool BOLT::extract_bolt(const std::string& input_file, const std::string& output_dir) {
+bool BOLT::extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir) {
   std::filesystem::create_directories(output_dir);
 
   bolt_reader_t reader;
