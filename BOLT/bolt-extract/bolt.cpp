@@ -60,13 +60,19 @@ void bolt_reader_t::read_from_file(const std::filesystem::path& filename) {
   find_bolt_archive();
 }
 
+constexpr std::byte BOLT_STR[] = { std::byte('B'), std::byte('O'), std::byte('L'), std::byte('T') };
+constexpr std::byte BOLT_STR_LOWER[] = { std::byte('b'), std::byte('o'), std::byte('l'), std::byte('t') };
+
 void bolt_reader_t::find_bolt_archive() {
-  constexpr char boltStr[] = "BOLT";
-  char* romptr = reinterpret_cast<char*>(rom.data());
-  auto it = std::search(romptr, romptr + rom.size(), &boltStr[0], &boltStr[4]);
-  if (it == romptr + rom.size()) throw std::runtime_error("Failed to find BOLT header. Rom is either incorrect format, corrupted, or does not contain BOLT archive.");
-  
-  bolt_begin = cursor_pos = std::distance(romptr, it);
+  auto found = std::ranges::search(rom, BOLT_STR);
+  if (found.empty()) {
+    found = std::ranges::search(rom, BOLT_STR_LOWER);
+    if (found.empty()) {
+      throw std::runtime_error("Failed to find BOLT header. Rom is either incorrect format, corrupted, or does not contain BOLT archive.");
+    }
+  }
+
+  bolt_begin = cursor_pos = std::distance(rom.begin(), found.begin());
   archive = reinterpret_cast<archive_t*>(&rom[bolt_begin]);
 }
 
@@ -85,6 +91,7 @@ void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
   for (int i = 0; offsetof(archive_t, entries[i]) < earliest_ref; ++i) {
     
     uint32_t data_offset = archive->entries[i].data_offset();
+    if (data_offset == 0) continue;
     if (data_offset < earliest_ref) earliest_ref = data_offset;
 
     extract_entry(out_dir, archive->entries[i]);
