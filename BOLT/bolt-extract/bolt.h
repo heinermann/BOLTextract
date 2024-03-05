@@ -38,10 +38,13 @@ namespace BOLT {
 
   struct archive_t {
     uint32_t magic; // 'B', 'O', 'L', 'T'
-    uint32_t unk1;
-    uint8_t unk2;
-    uint8_t unk3;
-    uint8_t unk4;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+    uint8_t millisecond;
+    uint8_t month;
+    uint8_t day;
+    uint8_t year;
     uint8_t num_entries;
     uint32_t end_offset;  // most of the time
     entry_t entries[1];

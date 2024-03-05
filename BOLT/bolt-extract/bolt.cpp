@@ -118,7 +118,7 @@ void bolt_reader_t::decompress_v1(std::uint32_t offset, std::uint32_t expected_s
   // TODO
 }
 
-// Decompress algorithm used by N64 and GBA games.
+// Decompress algorithm used by N64 and GBA games. (entirely guessed)
 void bolt_reader_t::decompress_v2(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
@@ -260,7 +260,7 @@ void bolt_reader_t::decompress_v3(std::uint32_t offset, std::uint32_t expected_s
   }
 }
 
-// The Game of Life filetype 0x09
+// The Game of Life filetype 0x09, DOS games have something similar for 0x08
 void bolt_reader_t::decompress_v3_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   // TODO multichunk entry
 }
