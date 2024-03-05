@@ -32,5 +32,8 @@
     <ClInclude Include="bolt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="bolt_real.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

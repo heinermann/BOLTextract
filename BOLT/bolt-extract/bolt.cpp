@@ -17,36 +17,27 @@ namespace BOLT {
   bool g_big_endian = false;
 }
 
-std::uint32_t BOLT::bswap(std::uint32_t v) {
-  return
-    ((v & 0x000000FF) << 24) |
-    ((v & 0x0000FF00) << 8) |
-    ((v & 0x00FF0000) >> 8) |
-    ((v & 0xFF000000) >> 24);
-}
-
-uint32_t entry_t::flags() const {
-  //if (g_big_endian)
-    return bswap(flags_be);
-  //return flags_be;
+std::uint32_t BOLT::bswap_if(std::uint32_t v) {
+  if (g_big_endian) {
+    return
+      ((v & 0x000000FF) << 24) |
+      ((v & 0x0000FF00) << 8) |
+      ((v & 0x00FF0000) >> 8) |
+      ((v & 0xFF000000) >> 24);
+  }
+  return v;
 }
 
 uint32_t entry_t::uncompressed_size() const {
-  if (g_big_endian)
-    return bswap(uncompressed_size_be);
-  return uncompressed_size_be;
+  return bswap_if(uncompressed_size_be);
 }
 
 uint32_t entry_t::data_offset() const {
-  if (g_big_endian)
-    return bswap(data_offset_be);
-  return data_offset_be;
+  return bswap_if(data_offset_be);
 }
 
-uint32_t entry_t::name_hash() const {
-  if (g_big_endian)
-    return bswap(name_hash_be);
-  return name_hash_be;
+uint32_t entry_t::file_hash() const {
+  return bswap_if(file_hash_be);
 }
 
 void bolt_reader_t::read_from_file(const std::filesystem::path& filename) {
@@ -102,12 +93,11 @@ void bolt_reader_t::extract_dir(const std::filesystem::path& out_dir, const entr
 }
 
 void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const entry_t& entry) {
-  std::uint32_t flags = entry.flags();
-  std::uint32_t hash = entry.name_hash();
+  std::uint32_t hash = entry.file_hash();
   std::uint32_t offset = entry.data_offset();
 
   if (hash == 0) {  // is directory
-    std::uint32_t num_items = flags & 0xFF;
+    std::uint32_t num_items = entry.file_type;
     if (num_items == 0) num_items = 256;
 
     std::ostringstream ss;
@@ -120,10 +110,16 @@ void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const en
 }
 
 void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
-  std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << ")\n";
+  std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << "); Filetype: " << std::uint32_t(current_filetype) << "\n";
 }
 
-void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+// DOS games and MAYBE CD-i?
+void bolt_reader_t::decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  // TODO
+}
+
+// Decompress algorithm used by N64 and GBA games.
+void bolt_reader_t::decompress_v2(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
   std::uint32_t op_count = 0;
@@ -184,26 +180,109 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
   }
 }
 
+// Decompress algorithm used by The Game of Life and ???.
+void bolt_reader_t::decompress_v3(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  set_cur_pos(offset);
+
+  while (result.size() < expected_size) {
+    std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
+
+    switch (bytevalue >> 4) {
+    case 0x0:
+      if (bytevalue) {
+        for (unsigned i = 0; i < bytevalue; ++i) {
+          result.push_back(read_u8());
+        }
+        continue;
+      }
+
+      if (result.size() != expected_size) {
+        std::ostringstream ss;
+        ss << "finished decompression with invalid size; Expected size: " << expected_size << "; Got: " << result.size();
+        err_msg(ss.str(), bytevalue);
+      }
+      return;
+    case 0x1: {
+      std::byte v = result[result.size() - ((bytevalue & 0xF) + 9)];
+      result.push_back(v);
+      result.push_back(v);
+      break;
+    }
+    case 0x2:
+    case 0x3: {
+      std::uint8_t b2 = std::uint8_t(read_u8());
+      unsigned run_length = (bytevalue & 0xF) + 3;
+      unsigned rel_offset = 2 * b2 + ((bytevalue >> 4) & 1);
+
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0x4: {
+      std::byte repeat_byte = read_u8();
+      unsigned run_length = (bytevalue & 0xF) + 3;
+      result.insert(result.end(), run_length, repeat_byte);
+      break;
+    }
+    case 0x5: {
+      std::uint8_t b2 = std::uint8_t(read_u8());
+      std::byte repeat_byte = read_u8();
+
+      unsigned run_length = 4 * (16 * b2 + (bytevalue & 0xF)) + 19;
+      result.insert(result.end(), run_length, repeat_byte);
+      break;
+    }
+    case 0x6: {
+      unsigned run_length = (bytevalue & 0xF) + 2;
+      result.insert(result.end(), run_length, std::byte(0));
+      break;
+    }
+    case 0x7:
+    case 0x8:
+    case 0x9:
+    case 0xA:
+    case 0xB:
+      result.push_back(result[result.size() - (bytevalue - 103)]);
+      result.push_back(result[result.size() - (bytevalue - 103)]);
+      break;
+    case 0xC:
+    case 0xD:
+    case 0xE:
+    case 0xF: {
+      result.push_back(result[result.size() - (((bytevalue & 0x38) >> 3) + 1)]);
+      result.push_back(result[result.size() - ((bytevalue & 7) + 2)]);
+      break;
+    }
+    }
+  }
+}
+
+// The Game of Life filetype 0x09
+void bolt_reader_t::decompress_v3_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  // TODO multichunk entry
+}
+
 void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry) {
-  std::uint32_t flags = entry.flags();
   std::uint32_t expected_size = entry.uncompressed_size();
-  std::uint32_t hash = entry.name_hash();
+  std::uint32_t hash = entry.file_hash();
   std::uint32_t offset = entry.data_offset();
 
   std::vector<std::byte> result;
   result.reserve(expected_size);
 
-  if (flags & FLAG_UNCOMPRESSED) {
+  this->current_filetype = entry.file_type;
+
+  if (entry.flags & FLAG_UNCOMPRESSED) {
     set_cur_pos(offset);
     result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
   }
   else {
-    decompress(offset, expected_size, result);
+    decompress_v2(offset, expected_size, result);
   }
-  /*
-  std::ostringstream ss;
-  ss << std::hex << (flags & 0xFFFF);
-  */
+
   write_result(out_dir, hash, result, expected_size);
 }
 
@@ -213,7 +292,7 @@ void bolt_reader_t::write_result(const std::filesystem::path& base_dir, std::uin
   std::filesystem::path filename = base_dir / filehash.str();
 
   if (data.size() != filesize) {
-    std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename << "\n";
+    std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename.filename() << "\n";
   }
 
   std::filesystem::create_directories(base_dir);

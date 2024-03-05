@@ -8,35 +8,32 @@
 namespace BOLT {
   bool extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir);
 
-  std::uint32_t bswap(std::uint32_t v);
+  std::uint32_t bswap_if(std::uint32_t v);
 
   extern bool g_big_endian;
 
-  /*
-  Flag notes:
-  0x0A - seen for most files (txt, fnt, chk)
-  0x0E - seen for few files
-  0x12 - seen for few files
 
-  0x19 - seen for many files
-  0x1A - seen for many files
-  0x1C - seen for few files
-
-  */
   enum flags_t {
-    FLAG_UNCOMPRESSED = 0x08000000
+    FLAG_UNCOMPRESSED = 0x08
   };
   
   struct entry_t {
-    std::uint32_t flags_be;
+    std::uint8_t flags;
+    std::uint8_t unk_1;
+    
+    // If this is specified, calls an indexed special function which doesn't exist anywhere I've seen
+    std::uint8_t unk_2;
+
+    std::uint8_t file_type;
     std::uint32_t uncompressed_size_be;
     std::uint32_t data_offset_be;
-    std::uint32_t name_hash_be;
 
-    uint32_t flags() const;
+    // cleared and used as the uncompressed file pointer in official implementations
+    std::uint32_t file_hash_be;
+
     uint32_t uncompressed_size() const;
     uint32_t data_offset() const;
-    uint32_t name_hash() const;
+    uint32_t file_hash() const;
   };
 
   struct archive_t {
@@ -57,6 +54,8 @@ namespace BOLT {
     std::size_t bolt_begin = 0;
     std::size_t cursor_pos = 0;
 
+    std::uint8_t current_filetype = 255;
+
     const archive_t* archive;
 
     const entry_t* entry_at(std::uint32_t offset) const;
@@ -72,7 +71,10 @@ namespace BOLT {
 
     void find_bolt_archive();
     void write_result(const std::filesystem::path& base_dir, std::uint32_t hash, const std::vector<std::byte> &data, std::uint32_t filesize);
-    void decompress(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+    void decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+    void decompress_v2(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+    void decompress_v3(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+    void decompress_v3_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
   public:
     void read_from_file(const std::filesystem::path& filename);
     void extract_all_to(const std::filesystem::path& out_dir);
