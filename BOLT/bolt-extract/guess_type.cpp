@@ -180,7 +180,7 @@ bool is_audio_file(const std::vector<std::byte>& data) {
   const MASSMEDIA_AUDIO* pAudio = reinterpret_cast<const MASSMEDIA_AUDIO*>(data.data());
 
   if (pAudio->channels > 2) return false;
-  if (pAudio->bits != 8 && pAudio->bits != 16 && pAudio->bits != 24 && pAudio->bits != 32) return false;
+  if (pAudio->bits != 4 && pAudio->bits != 8 && pAudio->bits != 16 && pAudio->bits != 24 && pAudio->bits != 32) return false;
   if (pAudio->unknown != 0) return false;
 
   std::uint32_t dataSize = bswap_if(pAudio->dataSize);

@@ -87,13 +87,10 @@ std::byte bolt_reader_t::read_u8() {
 }
 
 void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
-  std::uint32_t earliest_ref = std::numeric_limits<std::uint32_t>::max();
-  for (int i = 0; offsetof(archive_t, entries[i]) < earliest_ref; ++i) {
-    
-    uint32_t data_offset = archive->entries[i].data_offset();
-    if (data_offset == 0) continue;
-    if (data_offset < earliest_ref) earliest_ref = data_offset;
+  unsigned num_entries = this->archive->num_entries;
+  if (num_entries == 0) num_entries = 256;
 
+  for (unsigned i = 0; i < num_entries; ++i) {
     extract_entry(out_dir, archive->entries[i]);
   }
 }
@@ -161,11 +158,6 @@ void bolt_reader_t::decompress(std::uint32_t offset, std::uint32_t expected_size
         op_count = ext_offset = ext_run = 0;
       }
     }
-    /*else if (result.size() == 0) {
-      for (unsigned i = 0; i < bytevalue; ++i) {
-        result.push_back(read_u8());
-      }
-    }*/
     else {  // lookup
       if (result.size() == 0) {
         err_msg("lookup can't happen on first byte, something fishy is going on", bytevalue);
@@ -208,7 +200,10 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
   else {
     decompress(offset, expected_size, result);
   }
-
+  /*
+  std::ostringstream ss;
+  ss << std::hex << (flags & 0xFFFF);
+  */
   write_result(out_dir, hash, result, expected_size);
 }
 

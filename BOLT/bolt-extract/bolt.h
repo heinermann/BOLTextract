@@ -24,7 +24,7 @@ namespace BOLT {
 
   */
   enum flags_t {
-    FLAG_UNCOMPRESSED = 0x8000000
+    FLAG_UNCOMPRESSED = 0x08000000
   };
   
   struct entry_t {
@@ -42,7 +42,10 @@ namespace BOLT {
   struct archive_t {
     uint32_t magic; // 'B', 'O', 'L', 'T'
     uint32_t unk1;
-    uint32_t unk2;
+    uint8_t unk2;
+    uint8_t unk3;
+    uint8_t unk4;
+    uint8_t num_entries;
     uint32_t end_offset;  // most of the time
     entry_t entries[1];
   };
