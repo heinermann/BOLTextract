@@ -171,7 +171,7 @@ struct MASSMEDIA_AUDIO {
   std::uint8_t bits;
   std::uint16_t sampleRate;
   std::uint32_t dataSize;
-  std::uint32_t unknown;  // always 0?
+  std::uint32_t dataSize2;
 };
 #pragma pack()
 
@@ -181,9 +181,12 @@ bool is_audio_file(const std::vector<std::byte>& data) {
 
   if (pAudio->channels > 2) return false;
   if (pAudio->bits != 4 && pAudio->bits != 8 && pAudio->bits != 16 && pAudio->bits != 24 && pAudio->bits != 32) return false;
-  if (pAudio->unknown != 0) return false;
 
   std::uint32_t dataSize = bswap_if(pAudio->dataSize);
+  std::uint32_t dataSize2 = bswap_if(pAudio->dataSize2);
+  if (dataSize != 0 && dataSize2 != 0) return false;  // One of them must contain the size, the other 0
+  if (dataSize2 != 0) dataSize = dataSize2;
+
   std::uint16_t sampleRate = bswap_if(pAudio->sampleRate);
 
   if (dataSize + sizeof(MASSMEDIA_AUDIO) != data.size()) return false;

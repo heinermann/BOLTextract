@@ -44,7 +44,7 @@ namespace BOLT {
     uint8_t millisecond;
     uint8_t month;
     uint8_t day;
-    uint8_t year;
+    uint8_t year;   // Since 1900
     uint8_t num_entries;
     uint32_t end_offset;  // most of the time
     entry_t entries[1];
