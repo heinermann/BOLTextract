@@ -115,7 +115,59 @@ void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
 
 // DOS games and MAYBE CD-i?
 void bolt_reader_t::decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
-  // TODO
+  set_cur_pos(offset);
+
+  while (result.size() < expected_size) {
+    std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
+    std::uint8_t amount = bytevalue & 0x1F;
+
+    if ((bytevalue & 0xC0) == 0xC0) {
+      if (bytevalue & 0x20) {
+        if (result.size() != expected_size) {
+          std::ostringstream ss;
+          ss << "finished decompression with invalid size; Expected size: " << expected_size << "; Got: " << result.size();
+          err_msg(ss.str(), bytevalue);
+        }
+        return;
+      }
+      else {
+        std::uint8_t run = std::uint8_t(read_u8());
+        read_u8();  // wtf
+        std::byte repeat_byte = read_u8();
+
+        unsigned run_length = 4 * (32 - amount + 32 * run);
+        result.insert(result.end(), run_length, repeat_byte);
+      }
+    }
+    else if (bytevalue & 0x80) {
+      unsigned run_length = 4 * (32 - amount);
+      if (bytevalue & 0x20) run_length += 2;
+
+      unsigned rel_offset = 2 * unsigned(read_u8());
+
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+    }
+    else if (bytevalue & 0x40) {
+      unsigned run_length = 35 - amount;
+      unsigned rel_offset = 8 * (bytevalue & 0x20) + unsigned(read_u8());
+
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+    }
+    else {
+      unsigned run_length = 30 - amount + 1;
+      for (unsigned i = 0; i < run_length; ++i) {
+        result.push_back(read_u8());
+      }
+    }
+  }
 }
 
 // Decompress algorithm used by N64 and GBA games. (entirely guessed)
@@ -280,7 +332,7 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
     result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
   }
   else {
-    decompress_v2(offset, expected_size, result);
+    decompress_v1(offset, expected_size, result);
   }
 
   write_result(out_dir, hash, result, expected_size);
