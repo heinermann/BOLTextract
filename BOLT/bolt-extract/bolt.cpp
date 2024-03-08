@@ -113,7 +113,141 @@ void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
   std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << "); Filetype: " << std::uint32_t(current_filetype) << "\n";
 }
 
-// DOS games and MAYBE CD-i?
+void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  set_cur_pos(offset);
+
+  while (result.size() < expected_size) {
+    std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
+
+    switch (bytevalue >> 4) {
+    case 0x0:
+    case 0x1: {
+      for (unsigned i = 0; i < bytevalue + 1; ++i) {
+        result.push_back(read_u8());
+      }
+      break;
+    }
+    case 0x2: {
+      unsigned run_length = (bytevalue & 0xF) + 1;
+      result.insert(result.end(), run_length, std::byte(0));
+      break;
+    }
+    case 0x3: {
+      std::byte b = read_u8();
+      unsigned run_length = (bytevalue & 0xF) + 2;
+      result.insert(result.end(), run_length, b);
+      break;
+    }
+    case 0x4:
+    case 0x5:
+    case 0x6:
+    case 0x7: {
+      unsigned run_length = (bytevalue & 0x7) + 1;
+      unsigned rel_offset = ((bytevalue >> 3) & 7) + 1;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0x8: {
+      std::uint8_t ext = std::uint8_t(read_u8());
+
+      unsigned run_length = (ext & 0x3f) + 2;
+      unsigned rel_offset = ((((bytevalue << 8) | ext) >> 6) & 0x3f) + 1;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0x9: {
+      std::uint8_t ext = std::uint8_t(read_u8());
+
+      unsigned run_length = (ext & 0x3) + 2;
+      unsigned rel_offset = ((((bytevalue << 8) | ext) >> 2) & 0x3ff) + 1;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0xA: {
+      std::uint8_t ext = std::uint8_t(read_u8());
+      std::uint8_t ext2 = std::uint8_t(read_u8());
+
+      unsigned run_length = ((ext << 8) | ext2) - 1;
+      unsigned rel_offset = (bytevalue & 0xf) + 1;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0xB: {
+      std::uint8_t ext = std::uint8_t(read_u8());
+      std::uint8_t ext2 = std::uint8_t(read_u8());
+
+      unsigned run_length = (((ext & 0x3) << 8) | ext2) + 3;
+      unsigned rel_offset = (((((ext & 0xff) << 8) | (bytevalue << 16)) >> 10) & 0x3ff) + 1;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    }
+    case 0xC:
+    case 0xD: { // reverse nonsense
+      unsigned run_length = (bytevalue & 0x3) + 1;
+      unsigned rel_offset = (bytevalue >> 2) & 7;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        rel_offset++;
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+        rel_offset++;
+      }
+      break;
+    }
+    case 0xE: { // reverse nonsense
+      std::uint8_t ext = std::uint8_t(read_u8());
+
+      unsigned run_length = (ext & 0x3f) + 2;
+      unsigned rel_offset = (((bytevalue << 8) | ext) >> 6) & 0x3f;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        rel_offset++;
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+        rel_offset++;
+      }
+      break;
+    }
+    case 0xF: { // reverse nonsense
+      std::uint8_t ext = std::uint8_t(read_u8());
+      std::uint8_t ext2 = std::uint8_t(read_u8());
+
+      unsigned run_length = (((ext & 0x3) << 8) | ext2) + 3;
+      unsigned rel_offset = ((((ext & 0xff) << 8) | (bytevalue << 16)) >> 10) & 0x3ff;
+      // TODO simplify
+      for (unsigned i = 0; i < run_length; i++) {
+        rel_offset++;
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+        rel_offset++;
+      }
+      break;
+    }
+    }
+  }
+}
+
+// DOS games
 void bolt_reader_t::decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
@@ -317,6 +451,25 @@ void bolt_reader_t::decompress_v3_special_9(std::uint32_t offset, std::uint32_t 
   // TODO multichunk entry
 }
 
+#pragma pack(1)
+struct Special8 {
+  std::uint16_t field_0;
+  std::uint16_t field_2;
+  std::uint16_t field_4;
+  std::uint16_t field_8;
+  std::uint16_t field_A;
+  std::uint16_t field_C;
+  std::uint16_t field_E;
+  std::uint16_t field_10;
+  std::uint32_t field_12;
+  std::uint16_t field_16;
+};
+#pragma pack(pop)
+
+void bolt_reader_t::decompress_v1_special_8(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  decompress_v1(offset, 24, result);
+}
+
 void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry) {
   std::uint32_t expected_size = entry.uncompressed_size();
   std::uint32_t hash = entry.file_hash();
@@ -332,7 +485,7 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
     result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
   }
   else {
-    decompress_v1(offset, expected_size, result);
+    decompress_cdi(offset, expected_size, result);
   }
 
   write_result(out_dir, hash, result, expected_size);

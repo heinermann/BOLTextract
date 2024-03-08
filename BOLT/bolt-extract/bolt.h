@@ -74,10 +74,12 @@ namespace BOLT {
 
     void find_bolt_archive();
     void write_result(const std::filesystem::path& base_dir, std::uint32_t hash, const std::vector<std::byte> &data, std::uint32_t filesize);
+    void decompress_cdi(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_v2(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_v3(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_v3_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+    void decompress_v1_special_8(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
   public:
     void read_from_file(const std::filesystem::path& filename);
     void extract_all_to(const std::filesystem::path& out_dir);
