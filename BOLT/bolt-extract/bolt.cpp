@@ -122,13 +122,13 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
     switch (bytevalue >> 4) {
     case 0x0:
     case 0x1: {
-      for (unsigned i = 0; i < bytevalue + 1; ++i) {
+      for (unsigned i = 0; i < bytevalue; ++i) {
         result.push_back(read_u8());
       }
       break;
     }
     case 0x2: {
-      unsigned run_length = (bytevalue & 0xF) + 1;
+      unsigned run_length = bytevalue & 0xF;
       result.insert(result.end(), run_length, std::byte(0));
       break;
     }
