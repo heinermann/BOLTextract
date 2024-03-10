@@ -28,7 +28,7 @@ Usage:
   bolt-extract [OPTION...] INPUT_FILE [OUTPUT_DIR]
 
   -b, --big                     Use Big Endian byte order (N64, CD-i)
-  -a, --algo cdi|dos|n64|gba|win
+  -a, --algo cdi|dos|n64|gba|win|xbox
                                 Choose algorithm to use. (default: "")
   -h, --help                    show help
 ```
@@ -41,6 +41,7 @@ Example: `bolt-extract.exe -a n64 -b "StarCraft 64 (U).z64" starcraft64/`
 - `dos` - Archive either from MSDOS game or CD-i game.
 - `cdi` - Archive for some older CD-i games.
 - `win` - Archive for Windows game.
+- `xbox` - Archive for XBOX game.
 
 ## Notes
 - Only `z64` format roms for N64 are supported.

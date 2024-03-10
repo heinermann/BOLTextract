@@ -5,13 +5,15 @@
 #include "../cxxopts/include/cxxopts.hpp"
 
 #include "bolt.h"
+#include "util.h"
+
 
 // Configure the command line
 void configure(cxxopts::Options& cmd) {
   cmd.add_options()
     ("i,input", "input file", cxxopts::value<std::string>())
     ("b,big", "Use Big Endian byte order (N64, CD-i)")
-    ("a,algo", "Choose algorithm to use.", cxxopts::value<std::string>()->default_value(""), "cdi|dos|n64|gba|win")
+    ("a,algo", "Choose algorithm to use.", cxxopts::value<std::string>()->default_value(""), "cdi|dos|n64|gba|win|xbox")
     ("o,output", "output directory (optional, defaults to input file's directory)", cxxopts::value<std::string>())
     ("h,help", "show help")
     ;
@@ -41,6 +43,7 @@ std::map<std::string, BOLT::algorithm_t> algorithm_mappings = {
   {"z64", BOLT::algorithm_t::N64},
   {"win", BOLT::algorithm_t::WIN},
   {"windows", BOLT::algorithm_t::WIN},
+  {"xbox", BOLT::algorithm_t::XBOX},
 };
 
 BOLT::algorithm_t determine_algorithm(const std::filesystem::path &input_file, std::string algorithm) {

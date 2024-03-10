@@ -12,14 +12,10 @@ namespace BOLT {
     DOS,
     N64,
     WIN,
+    XBOX,
   };
 
   bool extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir, algorithm_t algorithm);
-
-  std::uint32_t bswap_if(std::uint32_t v);
-
-  extern bool g_big_endian;
-
 
   enum flags_t {
     FLAG_UNCOMPRESSED = 0x08
@@ -28,10 +24,9 @@ namespace BOLT {
   struct entry_t {
     std::uint8_t flags;
     std::uint8_t unk_1;
-    
+
     // If this is specified, calls an indexed special function which doesn't exist anywhere I've seen
     std::uint8_t unk_2;
-
     std::uint8_t file_type;
     std::uint32_t uncompressed_size_be;
     std::uint32_t data_offset_be;
@@ -54,6 +49,19 @@ namespace BOLT {
     uint8_t day;
     uint8_t year;   // Since 1900
     uint8_t num_entries;
+    uint32_t end_offset;  // most of the time
+    entry_t entries[1];
+  };
+
+  struct archive_t_xbox {
+    uint32_t magic; // 'B', 'O', 'L', 'T'
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+    uint8_t month;
+    uint8_t day;
+    uint8_t year;   // Since 1900
+    uint16_t num_entries;
     uint32_t end_offset;  // most of the time
     entry_t entries[1];
   };
@@ -90,6 +98,8 @@ namespace BOLT {
     void decompress_win(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_win_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_dos_special_8(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
+
+    unsigned get_num_entries();
   public:
     void read_from_file(const std::filesystem::path& filename);
     void extract_all_to(const std::filesystem::path& out_dir);

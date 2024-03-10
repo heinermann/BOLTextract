@@ -10,22 +10,13 @@
 
 #include "bolt.h"
 #include "guess_type.h"
+#include "util.h"
+
 
 using namespace BOLT;
 
 namespace BOLT {
   bool g_big_endian = false;
-}
-
-std::uint32_t BOLT::bswap_if(std::uint32_t v) {
-  if (g_big_endian) {
-    return
-      ((v & 0x000000FF) << 24) |
-      ((v & 0x0000FF00) << 8) |
-      ((v & 0x00FF0000) >> 8) |
-      ((v & 0xFF000000) >> 24);
-  }
-  return v;
 }
 
 uint32_t entry_t::uncompressed_size() const {
@@ -63,8 +54,8 @@ void bolt_reader_t::find_bolt_archive() {
     }
   }
 
-  bolt_begin = cursor_pos = std::distance(rom.begin(), found.begin());
-  archive = reinterpret_cast<archive_t*>(&rom[bolt_begin]);
+  this->bolt_begin = cursor_pos = std::distance(rom.begin(), found.begin());
+  this->archive = reinterpret_cast<archive_t*>(&rom[bolt_begin]);
 }
 
 void bolt_reader_t::set_cur_pos(std::size_t pos) {
@@ -77,8 +68,17 @@ std::byte bolt_reader_t::read_u8() {
   return v;
 }
 
-void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
+unsigned bolt_reader_t::get_num_entries() {
+  if (algorithm == algorithm_t::XBOX) {
+    return bswap_if(reinterpret_cast<const archive_t_xbox*>(this->archive)->num_entries);
+  }
+
   unsigned num_entries = this->archive->num_entries;
+  if (num_entries == 0) num_entries = 256;
+}
+
+void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
+  unsigned num_entries = this->get_num_entries();
   if (num_entries == 0) num_entries = 256;
 
   for (unsigned i = 0; i < num_entries; ++i) {
@@ -98,6 +98,10 @@ void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const en
 
   if (hash == 0) {  // is directory
     std::uint32_t num_items = entry.file_type;
+    if (this->algorithm == algorithm_t::XBOX) {
+      num_items <<= 8;
+      num_items |= entry.unk_2;
+    }
     if (num_items == 0) num_items = 256;
 
     extract_dir(out_dir / std::format("{:03X}", index), entry_at(offset), num_items);
@@ -133,6 +137,7 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
       decompress_dos(offset, expected_size, result);
       break;
     case algorithm_t::N64:
+    case algorithm_t::XBOX:
       decompress_n64(offset, expected_size, result);
       break;
     case algorithm_t::WIN:

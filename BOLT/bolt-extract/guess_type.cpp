@@ -5,26 +5,7 @@
 #include <cctype>
 
 #include "guess_type.h"
-
-namespace BOLT {
-  extern bool g_big_endian;
-}
-
-std::uint32_t bswap_if(std::uint32_t v) {
-  if (!BOLT::g_big_endian) return v;
-  return
-    ((v & 0x000000FF) << 24) |
-    ((v & 0x0000FF00) << 8) |
-    ((v & 0x00FF0000) >> 8) |
-    ((v & 0xFF000000) >> 24);
-}
-
-std::uint16_t bswap_if(std::uint16_t v) {
-  if (!BOLT::g_big_endian) return v;
-  return
-    ((v & 0x00FF) << 8) |
-    ((v & 0xFF00) >> 8);
-}
+#include "util.h"
 
 
 bool check_easy_header(const std::vector<std::byte>& d, char c1, char c2, char c3, char c4) {
