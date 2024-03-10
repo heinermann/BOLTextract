@@ -148,13 +148,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="bolt.cpp" />
+    <ClCompile Include="cdi.cpp" />
+    <ClCompile Include="dos.cpp" />
     <ClCompile Include="guess_type.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="n64.cpp" />
+    <ClCompile Include="windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bolt.h" />
     <ClInclude Include="bolt_real.h" />
     <ClInclude Include="guess_type.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

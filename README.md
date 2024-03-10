@@ -37,7 +37,7 @@ Example: `bolt-extract.exe -a n64 -b "StarCraft 64 (U).z64" starcraft64/`
 
 ## Supported Algorithms
 - `n64` - Archive in z64 rom.
-- `gba` - Archive gba rom.
+- `gba` - Archive in gba rom.
 - `dos` - Archive either from MSDOS game or CD-i game.
 - `cdi` - Archive for some older CD-i games.
 - `win` - Archive for Windows game.
