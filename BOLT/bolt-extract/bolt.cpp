@@ -248,64 +248,92 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 }
 
 // DOS games
-void bolt_reader_t::decompress_v1(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+void bolt_reader_t::decompress_dos(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
-  while (result.size() < expected_size) {
-    std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
-    std::uint8_t amount = bytevalue & 0x1F;
+  unsigned opcode;
+  unsigned run_length;
+  unsigned rel_offset;
+  unsigned op_rel_offset;
+  std::byte repeat_byte;
 
-    if ((bytevalue & 0xC0) == 0xC0) {
-      if (bytevalue & 0x20) {
-        if (result.size() != expected_size) {
-          std::ostringstream ss;
-          ss << "finished decompression with invalid size; Expected size: " << expected_size << "; Got: " << result.size();
-          err_msg(ss.str(), bytevalue);
-        }
-        return;
+  bool skip_opcode = false;
+
+  while (result.size() < expected_size) {
+    if (!skip_opcode) {
+      std::uint8_t bytevalue = static_cast<std::uint8_t>(read_u8());
+      std::uint8_t amount = bytevalue & 0x1F;
+
+      if ((bytevalue & 0xC0) == 0) {
+        opcode = 0;
+
+        run_length = 31 - amount;
+      }
+      else if ((bytevalue & 0xC0) == 0x40) {
+        opcode = 1;
+
+        run_length = 35 - amount;
+        rel_offset = 8 * (bytevalue & 0x20) + unsigned(read_u8());
+      }
+      else if ((bytevalue & 0xC0) == 0x80) {
+        opcode = 1;
+
+        run_length = 4 * (32 - amount);
+        if (bytevalue & 0x20) run_length += 2;
+
+        rel_offset = 2 * unsigned(read_u8());
       }
       else {
-        std::uint8_t run = std::uint8_t(read_u8());
-        read_u8();  // wtf
-        std::byte repeat_byte = read_u8();
+        opcode = 2;
 
-        unsigned run_length = 4 * (32 - amount + 32 * run);
-        result.insert(result.end(), run_length, repeat_byte);
+        if (bytevalue & 0x20) {
+          run_length = 0;
+        }
+        else {
+          std::uint8_t run = std::uint8_t(read_u8());
+          read_u8();  // wtf
+          repeat_byte = read_u8();
+
+          run_length = 4 * (32 - amount + 32 * run);
+        }
       }
     }
-    else if (bytevalue & 0x80) {
-      unsigned run_length = 4 * (32 - amount);
-      if (bytevalue & 0x20) run_length += 2;
 
-      unsigned rel_offset = 2 * unsigned(read_u8());
-
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
-    }
-    else if (bytevalue & 0x40) {
-      unsigned run_length = 35 - amount;
-      unsigned rel_offset = 8 * (bytevalue & 0x20) + unsigned(read_u8());
-
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+    unsigned op_run_len;
+    unsigned remaining_size = expected_size - result.size();
+    if (remaining_size < run_length) {
+      skip_opcode = true;
+      op_run_len = remaining_size;
+      run_length -= remaining_size;
     }
     else {
-      unsigned run_length = 30 - amount + 1;
-      for (unsigned i = 0; i < run_length; ++i) {
+      op_run_len = run_length;
+      skip_opcode = false;
+    }
+
+
+    switch (opcode) {
+    case 0:
+      for (unsigned i = 0; i < op_run_len; ++i) {
         result.push_back(read_u8());
       }
+      break;
+    case 1:
+      // TODO simplify
+      for (unsigned i = 0; i < op_run_len; i++) {
+        std::byte v = result[result.size() - rel_offset];
+        result.push_back(v);
+      }
+      break;
+    case 2:
+      result.insert(result.end(), op_run_len, repeat_byte);
+      break;
     }
   }
 }
 
 // Decompress algorithm used by N64 and GBA games. (entirely guessed)
-void bolt_reader_t::decompress_v2(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+void bolt_reader_t::decompress_n64(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
   std::uint32_t op_count = 0;
@@ -367,7 +395,7 @@ void bolt_reader_t::decompress_v2(std::uint32_t offset, std::uint32_t expected_s
 }
 
 // Decompress algorithm used by The Game of Life and ???.
-void bolt_reader_t::decompress_v3(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+void bolt_reader_t::decompress_win(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
   while (result.size() < expected_size) {
@@ -447,7 +475,8 @@ void bolt_reader_t::decompress_v3(std::uint32_t offset, std::uint32_t expected_s
 }
 
 // The Game of Life filetype 0x09, DOS games have something similar for 0x08
-void bolt_reader_t::decompress_v3_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+void bolt_reader_t::decompress_win_special_9(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  decompress_win(offset, 24, result);
   // TODO multichunk entry
 }
 
@@ -466,8 +495,8 @@ struct Special8 {
 };
 #pragma pack(pop)
 
-void bolt_reader_t::decompress_v1_special_8(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
-  decompress_v1(offset, 24, result);
+void bolt_reader_t::decompress_dos_special_8(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
+  decompress_dos(offset, 24, result);
 }
 
 void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry) {
@@ -485,7 +514,7 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
     result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
   }
   else {
-    decompress_cdi(offset, expected_size, result);
+    decompress_dos(offset, expected_size, result);
   }
 
   write_result(out_dir, hash, result, expected_size);
