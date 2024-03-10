@@ -113,6 +113,13 @@ void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
   std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << "); Filetype: " << std::uint32_t(current_filetype) << "\n";
 }
 
+void reinsert_self(std::vector<std::byte>& result, unsigned rel_offset, unsigned run_length) {
+  for (unsigned i = 0; i < run_length; i++) {
+    std::byte v = result[result.size() - rel_offset];
+    result.push_back(v);
+  }
+}
+
 void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
@@ -144,11 +151,7 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
     case 0x7: {
       unsigned run_length = (bytevalue & 0x7) + 2;
       unsigned rel_offset = ((bytevalue >> 3) & 7) + 1;
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0x8: {
@@ -156,11 +159,7 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 
       unsigned run_length = (ext & 0x3f) + 3;
       unsigned rel_offset = ((((bytevalue << 8) | ext) >> 6) & 0x3f) + 1;
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0x9: {
@@ -168,11 +167,7 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 
       unsigned run_length = (ext & 0x3) + 3;
       unsigned rel_offset = ((((bytevalue << 8) | ext) >> 2) & 0x3ff) + 1;
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0xA: {
@@ -181,11 +176,7 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 
       unsigned run_length = ((ext << 8) | ext2);
       unsigned rel_offset = (bytevalue & 0xf) + 1;
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0xB: {
@@ -194,11 +185,7 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 
       unsigned run_length = (((ext & 0x3) << 8) | ext2) + 4;
       unsigned rel_offset = (((((ext & 0xff) << 8) | (bytevalue << 16)) >> 10) & 0x3ff) + 1;
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0xC:
@@ -319,11 +306,7 @@ void bolt_reader_t::decompress_dos(std::uint32_t offset, std::uint32_t expected_
       }
       break;
     case 1:
-      // TODO simplify
-      for (unsigned i = 0; i < op_run_len; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     case 2:
       result.insert(result.end(), op_run_len, repeat_byte);
@@ -427,12 +410,7 @@ void bolt_reader_t::decompress_win(std::uint32_t offset, std::uint32_t expected_
       std::uint8_t b2 = std::uint8_t(read_u8());
       unsigned run_length = (bytevalue & 0xF) + 3;
       unsigned rel_offset = 2 * b2 + ((bytevalue >> 4) & 1);
-
-      // TODO simplify
-      for (unsigned i = 0; i < run_length; i++) {
-        std::byte v = result[result.size() - rel_offset];
-        result.push_back(v);
-      }
+      reinsert_self(result, rel_offset, run_length);
       break;
     }
     case 0x4: {
