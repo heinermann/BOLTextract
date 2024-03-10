@@ -238,11 +238,10 @@ void bolt_reader_t::decompress_cdi(std::uint32_t offset, std::uint32_t expected_
 void bolt_reader_t::decompress_dos(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result) {
   set_cur_pos(offset);
 
-  unsigned opcode;
-  unsigned run_length;
-  unsigned rel_offset;
-  unsigned op_rel_offset;
-  std::byte repeat_byte;
+  unsigned opcode = 0;
+  unsigned run_length = 0;
+  unsigned rel_offset = 0;
+  std::byte repeat_byte = std::byte(0);
 
   bool skip_opcode = false;
 
@@ -458,7 +457,7 @@ void bolt_reader_t::decompress_win_special_9(std::uint32_t offset, std::uint32_t
   // TODO multichunk entry
 }
 
-#pragma pack(1)
+#pragma pack(push, 1)
 struct Special8 {
   std::uint16_t field_0;
   std::uint16_t field_2;
@@ -492,7 +491,20 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
     result.insert(result.end(), &rom[cursor_pos], &rom[cursor_pos] + expected_size);
   }
   else {
-    decompress_dos(offset, expected_size, result);
+    switch (algorithm) {
+    case algorithm_t::CDI:
+      decompress_cdi(offset, expected_size, result);
+      break;
+    case algorithm_t::DOS:
+      decompress_dos(offset, expected_size, result);
+      break;
+    case algorithm_t::N64:
+      decompress_n64(offset, expected_size, result);
+      break;
+    case algorithm_t::WIN:
+      decompress_win(offset, expected_size, result);
+      break;
+    }
   }
 
   write_result(out_dir, hash, result, expected_size);
@@ -516,11 +528,15 @@ const entry_t* bolt_reader_t::entry_at(std::uint32_t offset) const {
   return reinterpret_cast<const entry_t*>(&rom[bolt_begin + offset]);
 }
 
-bool BOLT::extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir) {
+bool BOLT::extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir, algorithm_t algorithm) {
   std::filesystem::create_directories(output_dir);
 
-  bolt_reader_t reader;
+  bolt_reader_t reader{ algorithm };
   reader.read_from_file(input_file);
   reader.extract_all_to(output_dir);
   return true;
 }
+
+bolt_reader_t::bolt_reader_t(algorithm_t algo)
+  : algorithm(algo) {}
+

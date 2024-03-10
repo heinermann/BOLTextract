@@ -10,7 +10,8 @@
 void configure(cxxopts::Options& cmd) {
   cmd.add_options()
     ("i,input", "input file", cxxopts::value<std::string>())
-    ("b,big", "Use Big Endian byte order (N64)")
+    ("b,big", "Use Big Endian byte order (N64, CD-i)")
+    ("a,algo", "Choose algorithm to use.", cxxopts::value<std::string>()->default_value(""), "cdi|dos|n64|gba|win")
     ("o,output", "output directory (optional, defaults to input file's directory)", cxxopts::value<std::string>())
     ("h,help", "show help")
     ;
@@ -28,6 +29,30 @@ void check_debugger() {
   std::cerr << "Attach debugger, then press enter..." << std::endl;
   std::cin.ignore();
 #endif
+}
+
+
+std::map<std::string, BOLT::algorithm_t> algorithm_mappings = {
+  {"cdi", BOLT::algorithm_t::CDI},
+  {"dos", BOLT::algorithm_t::DOS},
+  {"msdos", BOLT::algorithm_t::DOS},
+  {"n64", BOLT::algorithm_t::N64},
+  {"gba", BOLT::algorithm_t::N64},
+  {"z64", BOLT::algorithm_t::N64},
+  {"win", BOLT::algorithm_t::WIN},
+  {"windows", BOLT::algorithm_t::WIN},
+};
+
+BOLT::algorithm_t determine_algorithm(const std::filesystem::path &input_file, std::string algorithm) {
+  if (algorithm.empty()) {
+    algorithm = input_file.extension().string();
+    algorithm.erase(0, 1);
+  }
+
+  if (algorithm_mappings.contains(algorithm)) {
+    return algorithm_mappings.at(algorithm);
+  }
+  return BOLT::algorithm_t::UNKNOWN;
 }
 
 int main(int argc, const char **argv)
@@ -60,7 +85,13 @@ int main(int argc, const char **argv)
 
   check_debugger();
 
-  BOLT::extract_bolt(input_path, output_path);
+  BOLT::algorithm_t algorithm = determine_algorithm(input_path, parsed["algo"].as<std::string>());
+  if (algorithm == BOLT::algorithm_t::UNKNOWN) {
+    std::cerr << "Please choose a supported algorithm.\n";
+    show_help(cmd);
+    return 1;
+  }
 
+  BOLT::extract_bolt(input_path, output_path, algorithm);
   return 0;
 }

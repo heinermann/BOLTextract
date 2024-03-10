@@ -6,7 +6,15 @@
 
 
 namespace BOLT {
-  bool extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir);
+  enum class algorithm_t {
+    UNKNOWN,
+    CDI,
+    DOS,
+    N64,
+    WIN,
+  };
+
+  bool extract_bolt(const std::filesystem::path& input_file, const std::filesystem::path& output_dir, algorithm_t algorithm);
 
   std::uint32_t bswap_if(std::uint32_t v);
 
@@ -16,7 +24,7 @@ namespace BOLT {
   enum flags_t {
     FLAG_UNCOMPRESSED = 0x08
   };
-  
+
   struct entry_t {
     std::uint8_t flags;
     std::uint8_t unk_1;
@@ -54,6 +62,8 @@ namespace BOLT {
   private:
     std::vector<std::byte> rom;
 
+    algorithm_t algorithm;
+
     std::size_t bolt_begin = 0;
     std::size_t cursor_pos = 0;
 
@@ -83,5 +93,7 @@ namespace BOLT {
   public:
     void read_from_file(const std::filesystem::path& filename);
     void extract_all_to(const std::filesystem::path& out_dir);
+
+    bolt_reader_t(algorithm_t algo);
   };
 }

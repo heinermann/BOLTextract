@@ -27,14 +27,25 @@ Extract Mass Media's BOLT archive from binaries.
 Usage:
   bolt-extract [OPTION...] INPUT_FILE [OUTPUT_DIR]
 
-  -b, --big   Use Big Endian byte order (N64)
-  -h, --help  show help
+  -b, --big                     Use Big Endian byte order (N64, CD-i)
+  -a, --algo cdi|dos|n64|gba|win
+                                Choose algorithm to use. (default: "")
+  -h, --help                    show help
 ```
 
-Example: `bolt-extract.exe -b "StarCraft 64 (U).z64" starcraft64/`
+Example: `bolt-extract.exe -a n64 -b "StarCraft 64 (U).z64" starcraft64/`
+
+## Supported Algorithms
+- `n64` - Archive in z64 rom.
+- `gba` - Archive gba rom.
+- `dos` - Archive either from MSDOS game or CD-i game.
+- `cdi` - Archive for some older CD-i games.
+- `win` - Archive for Windows game.
 
 ## Notes
 - Only `z64` format roms for N64 are supported.
+- Not all CD-i game archives are supported.
+- Other consoles and newer games untested.
 
 ## Building
 1. `git clone https://github.com/heinermann/BOLTextract.git`
