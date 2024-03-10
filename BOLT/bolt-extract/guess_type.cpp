@@ -175,6 +175,14 @@ bool is_audio_file(const std::vector<std::byte>& data) {
   return true;
 }
 
+bool is_vag_file(const std::vector<std::byte>& data) {
+  return check_easy_header(data, 'V', 'A', 'G', 'p');
+}
+
+bool is_elf_file(const std::vector<std::byte>& data) {
+  return check_easy_header(data, 0x7F, 'E', 'L', 'F');
+}
+
 std::string guess_extension(const std::vector<std::byte>& data) {
   if (data.size() != 0) {
     if (is_wav_file(data)) return ".wav";
@@ -186,6 +194,8 @@ std::string guess_extension(const std::vector<std::byte>& data) {
     if (is_tbl_file(data)) return ".tbl";
     if (is_grp_file(data)) return ".grp";
     if (is_txt_file(data)) return ".txt";
+    if (is_vag_file(data)) return ".vag";
+    if (is_elf_file(data)) return ".elf";
   }
   return ".unk";
 }

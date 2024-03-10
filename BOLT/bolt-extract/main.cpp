@@ -20,6 +20,7 @@ void configure(cxxopts::Options& cmd) {
 
   cmd.parse_positional({ "input", "output" });
   cmd.positional_help("INPUT_FILE [OUTPUT_DIR]");
+  cmd.allow_unrecognised_options();
 }
 
 void show_help(cxxopts::Options &cmd) {
