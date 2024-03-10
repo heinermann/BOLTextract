@@ -1,5 +1,5 @@
 ## Overview
-[Mass Media Games](https://en.wikipedia.org/wiki/Mass_Media_Games)' BOLT archive extractor.
+[Mass Media Games](https://en.wikipedia.org/wiki/Mass_Media_Games)' BOLT archive extractor. Includes [Mass Media Games, Inc](https://www.mobygames.com/company/1562/mass-media-games-inc/) and [Philips P.O.V. Entertainment Group](https://www.mobygames.com/company/7588/philips-pov-entertainment-group/).
 
 Unpacks all files contained within the embedded archive. The files are not named. Some enclosed file formats are common between games. Tested on various different roms. Failure modes are not tested.
 

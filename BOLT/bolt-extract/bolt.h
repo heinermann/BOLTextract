@@ -77,13 +77,13 @@ namespace BOLT {
     void err_msg(const std::string& msg, std::uint8_t opcode);
 
     void extract_dir(const std::filesystem::path& out_dir, const entry_t *entries, uint32_t num_entries);
-    void extract_file(const std::filesystem::path& out_dir, const entry_t& entry);
-    void extract_entry(const std::filesystem::path& out_dir, const entry_t& entry);
+    void extract_file(const std::filesystem::path& out_dir, const entry_t& entry, unsigned index);
+    void extract_entry(const std::filesystem::path& out_dir, const entry_t& entry, unsigned index);
 
     void set_cur_pos(std::size_t pos);
 
     void find_bolt_archive();
-    void write_result(const std::filesystem::path& base_dir, std::uint32_t hash, const std::vector<std::byte> &data, std::uint32_t filesize);
+    void write_result(const std::filesystem::path& base_dir, unsigned index, const std::vector<std::byte> &data, std::uint32_t filesize);
     void decompress_cdi(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_dos(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);
     void decompress_n64(std::uint32_t offset, std::uint32_t expected_size, std::vector<std::byte>& result);

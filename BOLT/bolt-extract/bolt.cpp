@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstddef>
-#include <sstream>
 #include <iostream>
+#include <format>
 
 #include "bolt.h"
 #include "guess_type.h"
@@ -82,17 +82,17 @@ void bolt_reader_t::extract_all_to(const std::filesystem::path& out_dir) {
   if (num_entries == 0) num_entries = 256;
 
   for (unsigned i = 0; i < num_entries; ++i) {
-    extract_entry(out_dir, archive->entries[i]);
+    extract_entry(out_dir, archive->entries[i], i);
   }
 }
 
 void bolt_reader_t::extract_dir(const std::filesystem::path& out_dir, const entry_t* entries, std::uint32_t num_entries) {
   for (std::uint32_t i = 0; i < num_entries; ++i) {
-    extract_entry(out_dir, entries[i]);
+    extract_entry(out_dir, entries[i], i);
   }
 }
 
-void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const entry_t& entry) {
+void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const entry_t& entry, unsigned index) {
   std::uint32_t hash = entry.file_hash();
   std::uint32_t offset = entry.data_offset();
 
@@ -100,12 +100,10 @@ void bolt_reader_t::extract_entry(const std::filesystem::path& out_dir, const en
     std::uint32_t num_items = entry.file_type;
     if (num_items == 0) num_items = 256;
 
-    std::ostringstream ss;
-    ss << std::hex << offset;
-    extract_dir(out_dir / ss.str(), entry_at(offset), num_items);
+    extract_dir(out_dir / std::format("{:03X}", index), entry_at(offset), num_items);
   }
   else { // is file
-    extract_file(out_dir, entry);
+    extract_file(out_dir, entry, index);
   }
 }
 
@@ -113,9 +111,8 @@ void bolt_reader_t::err_msg(const std::string& msg, std::uint8_t value) {
   std::cerr << msg << "; value " << std::uint32_t(value) << " at offset " << std::hex << cursor_pos << " (BOLT+" << (cursor_pos - bolt_begin) << "); Filetype: " << std::uint32_t(current_filetype) << "\n";
 }
 
-void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry) {
+void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const entry_t& entry, unsigned index) {
   std::uint32_t expected_size = entry.uncompressed_size();
-  std::uint32_t hash = entry.file_hash();
   std::uint32_t offset = entry.data_offset();
 
   std::vector<std::byte> result;
@@ -144,13 +141,11 @@ void bolt_reader_t::extract_file(const std::filesystem::path& out_dir, const ent
     }
   }
 
-  write_result(out_dir, hash, result, expected_size);
+  write_result(out_dir, index, result, expected_size);
 }
 
-void bolt_reader_t::write_result(const std::filesystem::path& base_dir, std::uint32_t hash, const std::vector<std::byte>& data, std::uint32_t filesize) {
-  std::ostringstream filehash;
-  filehash << std::hex << hash << guess_extension(data);
-  std::filesystem::path filename = base_dir / filehash.str();
+void bolt_reader_t::write_result(const std::filesystem::path& base_dir, unsigned index, const std::vector<std::byte>& data, std::uint32_t filesize) {
+  std::filesystem::path filename = base_dir / std::format("{:03X}{}", index, guess_extension(data));
 
   if (data.size() != filesize) {
     std::cerr << "Result size is wrong. " << std::dec << data.size() << " != " << filesize << " for file " << filename.filename() << "\n";
