@@ -10,7 +10,7 @@ Here are some games confirmed to use BOLT archives:
 - 3-D TableSports (DOS)
 - The Game of Life (Windows 95)
 - Bassmasters 2000 (N64)
-- Namco Museum (N64, GBA, Dreamcast)
+- Namco Museum (N64, GBA, Dreamcast, PS2, XBox)
 - Ms. Pac-Man - Maze Madness (N64, Dreamcast)
 - Power Rangers - Lightspeed Rescue (N64)
 - **Starcraft 64** (N64)
@@ -28,7 +28,7 @@ Usage:
   bolt-extract [OPTION...] INPUT_FILE [OUTPUT_DIR]
 
   -b, --big                     Use Big Endian byte order (N64, CD-i)
-  -a, --algo cdi|dos|n64|gba|win|xbox
+  -a, --algo cdi|dos|n64|gba|win|xbox|ps2
                                 Choose algorithm to use. (default: "")
   -h, --help                    show help
 ```
@@ -36,12 +36,11 @@ Usage:
 Example: `bolt-extract.exe -a n64 -b "StarCraft 64 (U).z64" starcraft64/`
 
 ## Supported Algorithms
-- `n64` - Archive in z64 rom.
-- `gba` - Archive in gba rom.
-- `dos` - Archive either from MSDOS game or CD-i game.
-- `cdi` - Archive for some older CD-i games.
-- `win` - Archive for Windows game.
-- `xbox` - Archive for XBOX game.
+- `cdi` - For some older CD-i games before 1993.
+- `dos` - Either from MSDOS or CD-i games between 1993 and 1996.
+- `win` - For The Game of Life (1998).
+- `n64`/`gba` - Used in games released between 1999 and 2003. You may need to manually separate BOLT archives in gba roms.
+- `xbox`/`ps2` - Same as the n64 algorithm but with altered data structures. Used in games released from 2004 onward.
 
 ## Notes
 - Only `z64` format roms for N64 are supported.
